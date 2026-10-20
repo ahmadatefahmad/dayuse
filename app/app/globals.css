@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply font-inter bg-white text-grey-700; }
+  h1,h2,h3 { @apply font-playfair; }
+}

@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Runtime connection. On Vercel: Supabase transaction pooler (port 6543, ?pgbouncer=true).
+  url       = env("DATABASE_URL")
+  // Used by `prisma migrate`: Supabase session pooler (port 5432). See DEPLOY.md.
+  directUrl = env("DIRECT_URL")
+}
+
+model Property {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  city            String
+  area            String?
+  description     String
+  type            String   // hotel | beach_club | resort
+  stars           Int?
+  address         String
+  lat             Float?
+  lng             Float?
+  amenities       String[] // pool, beach, wifi, etc.
+  images          String[] // Cloudinary URLs
+  coverImage      String
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  packages        Package[]
+  pricingRules    PropertyPricing[]
+  availabilityWindows AvailabilityWindow[]
+  blackoutDates   BlackoutDate[]
+  bookings        Booking[]
+  reviews         Review[]
+}
+
+model Package {
+  id            String   @id @default(cuid())
+  propertyId    String
+  name          String   // e.g. "Pool Day", "Beach Access"
+  description   String
+  inclusions    String[] // ["Pool access", "Welcome drink", "Towel"]
+  adultPrice    Float    // base price shown to guest (marked-up)
+  childPrice    Float
+  infantFree    Boolean  @default(true)
+  maxAdults     Int?
+  maxChildren   Int?
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+
+  property      Property @relation(fields: [propertyId], references: [id])
+  addOns        PackageAddOn[]
+  bookings      Booking[]
+  pricingRules  PropertyPricing[]
+}
+
+model PackageAddOn {
+  id          String  @id @default(cuid())
+  packageId   String
+  name        String
+  price       Float
+  perPerson   Boolean @default(true)
+  active      Boolean @default(true)
+
+  package     Package @relation(fields: [packageId], references: [id])
+}
+
+model PropertyPricing {
+  id          String   @id @default(cuid())
+  propertyId  String
+  packageId   String?
+  dayOfWeek   Int?     // 0=Sun … 6=Sat; null if dateOverride set
+  dateOverride DateTime? @db.Date
+  adultPrice  Float
+  childPrice  Float
+
+  property    Property @relation(fields: [propertyId], references: [id])
+  package     Package? @relation(fields: [packageId], references: [id])
+
+  @@unique([propertyId, packageId, dayOfWeek])
+  @@unique([propertyId, packageId, dateOverride])
+}
+
+model AvailabilityWindow {
+  id               String   @id @default(cuid())
+  propertyId       String
+  startTime        String   // "09:00"
+  endTime          String   // "18:00"
+  maxCapacityAdults Int
+  maxCapacityChildren Int   @default(0)
+
+  property         Property @relation(fields: [propertyId], references: [id])
+}
+
+model BlackoutDate {
+  id         String   @id @default(cuid())
+  propertyId String
+  date       DateTime @db.Date
+  reason     String?
+
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, date])
+}
+
+model User {
+  id          String   @id // matches Supabase Auth UID
+  email       String   @unique
+  name        String?
+  phone       String?
+  createdAt   DateTime @default(now())
+
+  bookings    Booking[]
+  reviews     Review[]
+}
+
+model Booking {
+  id              String   @id @default(cuid())
+  userId          String?
+  guestName       String
+  guestEmail      String
+  guestPhone      String
+  propertyId      String
+  packageId       String
+  bookingDate     DateTime @db.Date
+  adults          Int
+  children        Int      @default(0)
+  infants         Int      @default(0)
+  addOns          Json     @default("[]") // [{addOnId, qty, price}]
+  totalPrice      Float    // what guest sees
+  platformFee     Float    // charged by Stripe
+  hotelAmount     Float    // collected on arrival
+  couponCode      String?
+  discountAmount  Float    @default(0)
+  status          String   @default("pending") // pending|confirmed|cancelled|completed|changed
+  stripePaymentId String?
+  stripeRefundId  String?
+  specialRequests String?
+  internalNotes   String?
+  accessToken     String   @unique @default(cuid()) // secret for guest links; app code sets a random value
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user        User?    @relation(fields: [userId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+  package     Package  @relation(fields: [packageId], references: [id])
+  reviews     Review[]
+  changeHistory BookingChange[]
+}
+
+model BookingChange {
+  id            String   @id @default(cuid())
+  bookingId     String
+  changedAt     DateTime @default(now())
+  oldDate       DateTime? @db.Date
+  newDate       DateTime? @db.Date
+  oldPackageId  String?
+  newPackageId  String?
+  priceDiff     Float    @default(0) // + means charged, - means refunded
+  stripeChargeId String?
+  stripeRefundId String?
+
+  booking       Booking  @relation(fields: [bookingId], references: [id])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  bookingId   String
+  userId      String
+  propertyId  String
+  rating      Int      // 1-5
+  title       String?
+  body        String
+  status      String   @default("pending") // pending|approved|rejected
+  adminNote   String?
+  createdAt   DateTime @default(now())
+
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+}
+
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  type          String   // percent | fixed
+  value         Float
+  minBookingTotal Float?
+  maxUses       Int?
+  usedCount     Int      @default(0)
+  expiresAt     DateTime?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model NotificationLog {
+  id          String   @id @default(cuid())
+  bookingId   String?
+  recipient   String   // email or phone
+  channel     String   // email | whatsapp | sms
+  type        String   // booking_confirmed | booking_cancelled | review_request | etc.
+  status      String   @default("sent") // sent | failed
+  sentAt      DateTime @default(now())
+  error       String?
+}

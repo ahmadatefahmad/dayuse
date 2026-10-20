@@ -1,0 +1,5 @@
+export type PropertyType = 'hotel' | 'beach_club' | 'resort'
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'changed'
+export type ReviewStatus  = 'pending' | 'approved' | 'rejected'
+export type CouponType    = 'percent' | 'fixed'
+export type NotificationChannel = 'email' | 'whatsapp' | 'sms'
