@@ -25,9 +25,11 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="relative flex min-h-[640px] items-center justify-center overflow-hidden bg-navy px-4 pb-16 pt-28 sm:min-h-[80vh]">
-        <PropertyImage src={HERO_IMAGE} alt="" sizes="100vw" priority />
-        <div className="absolute inset-0 bg-gradient-to-b from-navy/70 via-navy/40 to-navy/80" />
+      <section className="relative flex min-h-[640px] items-center justify-center bg-navy px-4 pb-16 pt-28 sm:min-h-[80vh]">
+        <div className="absolute inset-0 overflow-hidden">
+          <PropertyImage src={HERO_IMAGE} alt="" sizes="100vw" priority />
+          <div className="absolute inset-0 bg-gradient-to-b from-navy/70 via-navy/40 to-navy/80" />
+        </div>
         <div className="relative flex w-full flex-col items-center text-center text-white">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sand">Hotels · Beach Clubs · Resorts in Egypt</p>
           <h1 className="mt-4 max-w-3xl text-5xl leading-tight sm:text-7xl">Your perfect day escape</h1>
